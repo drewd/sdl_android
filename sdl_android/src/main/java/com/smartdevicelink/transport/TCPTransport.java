@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Arrays;
 
 import android.util.Log;
 
@@ -113,6 +114,8 @@ public class TCPTransport extends SdlTransport {
         byte[] msgBytes = packet.constructPacket();
         logInfo(String.format("TCPTransport: sendBytesOverTransport requested. Size: %d, Offset: %d, Length: %d, Current state is: %s"
                 , msgBytes.length, 0, msgBytes.length, currentState.name()));
+//        logInfo(packet.toString());
+//        logInfo(Arrays.toString(msgBytes));
 
         boolean bResult = false;
 
@@ -415,12 +418,25 @@ public class TCPTransport extends SdlTransport {
 
                         if (psm.getState() == SdlPsm.FINISHED_STATE)
                         {
+                            // fix by xevo,inc : we should not hold the lock here
+                            //
+                            // if we keep holding TCPTransport.this while processing handleReceivedPacket,
+                            // we will block all the synchronized methods, in particularly getCurrentState
+                            // called by another thread who might have kept PROTOCOL_REFERENCE_LOCK, which
+                            // we will need to acquire in the way to process handleReceivedPacket()
+                            //
+                            SdlPacket sdlPacket;
                             synchronized (TCPTransport.this) {
+                                sdlPacket = psm.getFormedPacket();
+                                psm.reset();
                                 //Log.d(TAG, "Packet formed, sending off");
-                                handleReceivedPacket((SdlPacket) psm.getFormedPacket());
+                                //handleReceivedPacket((SdlPacket) psm.getFormedPacket());
+                            }
+                            if (sdlPacket != null) {
+                                handleReceivedPacket(sdlPacket);
                             }
                             //We put a trace statement in the message read so we can avoid all the extra bytes
-                            psm.reset();
+                            //psm.reset();
                         }
                         //FIXME logInfo(String.format("TCPTransport.run: Received %d bytes", bytesRead));
                     }
