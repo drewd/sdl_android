@@ -570,7 +570,7 @@ public abstract class SdlProxyBase<proxyListenerType extends IProxyListenerBase>
 			// so we need to fix this, but vulnerability (i.e. two instances of listener) is
 			// likely harmless.
 			if (_traceDeviceInterrogator == null) {
-				_traceDeviceInterrogator = new TraceDeviceInfo(sdlProxyConfigurationResources.getTelephonyManager());
+				_traceDeviceInterrogator = new TraceDeviceInfo(telephonyManager);
 			} // end-if
 			
 		} // end-if
@@ -2836,11 +2836,42 @@ public abstract class SdlProxyBase<proxyListenerType extends IProxyListenerBase>
 					_proxyListener.onUpdateTurnListResponse(msg);
 					onRPCResponseReceived(msg);
 				}
+			} else if (functionName.equals(FunctionID.GET_SYSTEM_CAPABILITY.toString())) {
+				// GetSystemCapabilityResponse
+				final GetSystemCapabilityResponse msg = new GetSystemCapabilityResponse(hash);
+				if (_callbackToUIThread) {
+					_mainUIHandler.post(new Runnable() {
+						@Override
+						public void run() {
+							_proxyListener.onGetSystemCapabilityResponse(msg);
+							onRPCResponseReceived(msg);
+						}
+					});
+				} else {
+					_proxyListener.onGetSystemCapabilityResponse(msg);
+					onRPCResponseReceived(msg);
+				}
+			}
+			else if (functionName.equals(FunctionID.SEND_HAPTIC_DATA.toString())) {
+				final SendHapticDataResponse msg = new SendHapticDataResponse(hash);
+				if (_callbackToUIThread) {
+					// Run in UI thread
+					_mainUIHandler.post(new Runnable() {
+						@Override
+						public void run() {
+							_proxyListener.onSendHapticDataResponse((SendHapticDataResponse) msg);
+							onRPCResponseReceived(msg);
+						}
+					});
+				} else {
+					_proxyListener.onSendHapticDataResponse((SendHapticDataResponse) msg);
+					onRPCResponseReceived(msg);
+				}
 			}
 			else {
 				if (_sdlMsgVersion != null) {
 					DebugTool.logError("Unrecognized response Message: " + functionName.toString() + 
-							"SDL Message Version = " + _sdlMsgVersion);
+							" SDL Message Version = " + _sdlMsgVersion);
 				} else {
 					DebugTool.logError("Unrecognized response Message: " + functionName.toString());
 				}
